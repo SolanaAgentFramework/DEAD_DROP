@@ -53,6 +53,18 @@ if (!fs.existsSync(WALLETS_DIR)) {
 
 // Load or generate mixing pool
 function loadMixingPool() {
+    // Priority 1: Environment variable (for Render deployment)
+    if (process.env.MIXING_POOL_KEYS) {
+        const keys = process.env.MIXING_POOL_KEYS.split(',');
+        keys.forEach((key, i) => {
+            const keypair = Keypair.fromSecretKey(bs58.decode(key.trim()));
+            mixingPool.push(keypair);
+        });
+        console.log(`✅ Loaded ${mixingPool.length} mixing pool wallets from ENV`);
+        return;
+    }
+    
+    // Priority 2: Local file
     if (fs.existsSync(POOL_FILE)) {
         try {
             const poolData = JSON.parse(fs.readFileSync(POOL_FILE, 'utf8'));
@@ -240,6 +252,14 @@ let vaultWallet = null;
 const VAULT_FILE = path.join(WALLETS_DIR, 'vault.json');
 
 function loadVault() {
+    // Priority 1: Environment variable (for Render deployment)
+    if (process.env.VAULT_SECRET_KEY) {
+        vaultWallet = Keypair.fromSecretKey(bs58.decode(process.env.VAULT_SECRET_KEY));
+        console.log('✅ Vault wallet loaded from ENV:', vaultWallet.publicKey.toString());
+        return;
+    }
+    
+    // Priority 2: Local file
     if (fs.existsSync(VAULT_FILE)) {
         const vaultData = JSON.parse(fs.readFileSync(VAULT_FILE, 'utf8'));
         vaultWallet = Keypair.fromSecretKey(bs58.decode(vaultData.secretKey));
