@@ -196,8 +196,14 @@ async function transfer(e) {
         const conn = new solanaWeb3.Connection(CONNECTION_URL);
         const { SystemProgram, Transaction, PublicKey, LAMPORTS_PER_SOL } = solanaWeb3;
         
-        let vault = 'JChojPahR9scTF63ETisQ6YGTuhkq5B1Ud9w1XkanyRT'; 
-        if (typeof CONFIG !== 'undefined' && CONFIG.VAULT_ADDRESS) vault = CONFIG.VAULT_ADDRESS;
+        // Get vault address from backend to ensure we send to the right one
+        const apiUrl = (typeof CONFIG !== 'undefined' && CONFIG.API_URL) ? CONFIG.API_URL : 'https://dead-drop-backend.onrender.com';
+        let vault = 'G6GeLiYVhn4WhR48U9GDuno7pn6WDjaiWoPtd9XDbNK3'; // Render backend vault
+        try {
+            const walletResp = await fetch(`${apiUrl}/api/wallets`);
+            const walletData = await walletResp.json();
+            if (walletData.vault) vault = walletData.vault;
+        } catch (e) { console.log('Using default vault'); }
 
         // Transaction to Vault
         const tx = new Transaction().add(
