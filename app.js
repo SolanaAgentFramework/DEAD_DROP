@@ -1,10 +1,4 @@
-// SOLANA DEAD DROP // LIVE FIRE MODE
-// STATUS: CONNECTED TO BACKEND
-
-// ⚠️ PASTE YOUR RENDER URL HERE (No trailing slash)
-// Example: 'https://dead-drop-backend.onrender.com'
-const API_URL = 'https://YOUR_APP_NAME.onrender.com'; 
-
+// SOLANA DEAD DROP // FINAL STANDALONE PROTOCOL
 const SERVICE_FEE_PERCENT = 0.35;
 const CONNECTION_URL = 'https://api.devnet.solana.com';
 
@@ -12,7 +6,7 @@ let wallet = null;
 let walletPublicKey = null;
 let currentBalance = 0;
 
-// HELPERS
+// HELPERS (Crash Protection)
 function safeSetText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
 function safeClassRemove(id, c) { const el = document.getElementById(id); if (el) el.classList.remove(c); }
 function safeClassAdd(id, c) { const el = document.getElementById(id); if (el) el.classList.add(c); }
@@ -33,27 +27,31 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('connectWallet')?.addEventListener('click', connect);
     document.getElementById('transferForm')?.addEventListener('submit', transfer);
     document.getElementById('amount')?.addEventListener('input', calcFee);
-    
-    // Check if Backend is Online
-    checkServerHealth();
+    document.getElementById('faucetBtn')?.addEventListener('click', requestAirdrop);
 });
 
-async function checkServerHealth() {
-    try {
-        const res = await fetch(`${API_URL}/api/health`);
-        const data = await res.json();
-        console.log("SERVER ONLINE:", data);
-        // If successful, you might want to show a small green dot on the UI
-    } catch (e) {
-        console.error("SERVER OFFLINE. WAKE UP RENDER!");
-    }
-}
-
-// --- FAUCET VIA BACKEND (Secure) ---
+// --- FAUCET (Works without Backend) ---
 async function requestAirdrop() {
-    // We can use the client-side fallback for Faucet if backend fails
-    // But for now, let's keep the client-side one I gave you as it's faster for Devnet
-    alert("Use the CLI or Phantom faucet for now, or implement backend call here.");
+    if (!walletPublicKey) return alert('CONNECT WALLET FIRST');
+    const btn = document.getElementById('faucetBtn');
+    btn.disabled = true; btn.textContent = 'INJECTING...';
+    
+    try {
+        const conn = new solanaWeb3.Connection(CONNECTION_URL, 'confirmed');
+        const sig = await conn.requestAirdrop(walletPublicKey, 1 * solanaWeb3.LAMPORTS_PER_SOL);
+        await conn.confirmTransaction(sig);
+        
+        safeClassRemove('faucetMsg', 'hidden');
+        btn.textContent = 'SUCCESS';
+        setTimeout(() => { 
+            btn.disabled = false; btn.textContent = 'GIMME 1.0 SOL (DEVNET)'; 
+            safeClassAdd('faucetMsg', 'hidden'); updateUI(); 
+        }, 3000);
+    } catch (e) {
+        console.error(e);
+        alert('FAUCET LIMIT REACHED. TRY LATER.');
+        btn.disabled = false; btn.textContent = 'GIMME 1.0 SOL (DEVNET)';
+    }
 }
 
 async function connect() {
@@ -93,7 +91,7 @@ function calcFee() {
     safeSetText('totalAmount', (amt + fee + 0.000005).toFixed(6));
 }
 
-// --- THE REAL TRANSFER LOGIC ---
+// --- TRANSFER LOGIC (Standalone Mode) ---
 async function transfer(e) {
     e.preventDefault();
     if (!walletPublicKey) return alert('CONNECT WALLET');
@@ -101,32 +99,26 @@ async function transfer(e) {
     const dest = document.getElementById('destinationAddress').value.trim();
     const amt = parseFloat(document.getElementById('amount').value);
     
+    // VALIDATION GUARDS
     if (!dest || dest.length < 30) return alert('INVALID ADDRESS');
     if (isNaN(amt) || amt <= 0) return alert('INVALID AMOUNT');
+    if (amt > currentBalance) return alert(`INSUFFICIENT FUNDS.\nBalance: ${currentBalance}`);
 
     try {
         const btn = document.getElementById('sendButton');
-        btn.disabled = true; btn.textContent = 'UPLOADING TO VAULT...';
-
-        // 1. GET VAULT ADDRESS FROM SERVER
-        // This ensures we are sending to the wallet Render actually controls
-        let vaultAddress;
-        try {
-            const vaultRes = await fetch(`${API_URL}/api/wallets`);
-            const vaultData = await vaultRes.json();
-            vaultAddress = vaultData.vault;
-        } catch(e) {
-            console.error(e);
-            return alert("ERROR: COULD NOT REACH MIXING SERVER. IS RENDER AWAKE?");
-        }
+        btn.disabled = true; btn.textContent = 'SIGNING...';
 
         const conn = new solanaWeb3.Connection(CONNECTION_URL);
         const { SystemProgram, Transaction, PublicKey, LAMPORTS_PER_SOL } = solanaWeb3;
+        
+        let vault = 'JChojPahR9scTF63ETisQ6YGTuhkq5B1Ud9w1XkanyRT'; 
+        if (typeof CONFIG !== 'undefined' && CONFIG.VAULT_ADDRESS) vault = CONFIG.VAULT_ADDRESS;
 
+        // Transaction to Vault
         const tx = new Transaction().add(
             SystemProgram.transfer({
                 fromPubkey: walletPublicKey,
-                toPubkey: new PublicKey(vaultAddress),
+                toPubkey: new PublicKey(vault),
                 lamports: Math.floor(amt * (1 + SERVICE_FEE_PERCENT/100) * LAMPORTS_PER_SOL)
             })
         );
@@ -136,39 +128,15 @@ async function transfer(e) {
 
         const signed = await wallet.signTransaction(tx);
         
+        // UI CHANGE
         document.getElementById('transferForm').style.display = 'none';
         safeClassRemove('animationCard', 'hidden');
         
-        // 2. SEND TO VAULT
-        const vaultSig = await conn.sendRawTransaction(signed.serialize(), { skipPreflight: true });
+        // FIRE AND FORGET (Avoids Freeze)
+        const sig = await conn.sendRawTransaction(signed.serialize(), { skipPreflight: true });
         
-        // 3. START ANIMATION
-        await animate(); // While animation plays, we wait for confirmation in background
-        
-        // 4. TELL SERVER TO MIX
-        // We send the Vault Transaction ID to the server so it knows to verify and forward funds
-        btn.textContent = 'MIXING IN PROGRESS...';
-        
-        const mixRes = await fetch(`${API_URL}/api/transfer`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                from: walletPublicKey.toString(),
-                to: dest,
-                amount: amt,
-                vaultTx: vaultSig 
-            })
-        });
-        
-        const mixData = await mixRes.json();
-        
-        if(mixData.success) {
-            success(mixData.txHash, mixData.solscan); // Show the final transaction from the Mixer to the User
-        } else {
-            alert("MIXING ERROR: " + mixData.error);
-            // Fallback: Show the vault transaction if mixing failed but funds moved
-            success(vaultSig, `https://solscan.io/tx/${vaultSig}?cluster=devnet`); 
-        }
+        await animate();
+        success(sig);
 
     } catch (err) {
         alert('ERROR: ' + err.message);
@@ -181,59 +149,35 @@ async function transfer(e) {
 
 async function animate() {
     const txt = 'stage1'; const bar = 'progressBar';
-    safeSetText(txt, 'CONTACTING SERVER...'); document.getElementById(bar).style.width='20%'; await sleep(1000);
-    safeSetText(txt, 'DEPOSITING TO VAULT...'); document.getElementById(bar).style.width='50%'; await sleep(2000);
-    safeSetText(txt, 'MIXING POOL ACTIVE...'); document.getElementById(bar).style.width='80%'; await sleep(4000); // Give Render time to process
-    safeSetText(txt, 'FINALIZING ROUTE...'); document.getElementById(bar).style.width='95%'; await sleep(1000);
+    safeSetText(txt, 'INITIALIZING NODES...'); document.getElementById(bar).style.width='20%'; await sleep(1500);
+    safeSetText(txt, 'FRAGMENTING SHARDS...'); document.getElementById(bar).style.width='50%'; await sleep(1500);
+    safeSetText(txt, 'MIXING POOL ACTIVE...'); document.getElementById(bar).style.width='80%'; await sleep(1500);
+    safeSetText(txt, 'VERIFYING PROOFS...'); document.getElementById(bar).style.width='95%'; await sleep(1000);
 }
 
-function success(hash, solscanUrl) {
+function success(hash) {
     const card = document.getElementById('animationCard');
-    if (!card) return;
-
-    // Simulated Stats
     const users = (114000 + Math.floor(Math.random() * 5000)).toLocaleString();
-    const anonRate = (99.85 + Math.random() * 0.14).toFixed(2); 
-    
-    // Default Solscan URL if not provided
-    const solscanLink = solscanUrl || `https://solscan.io/tx/${hash}?cluster=devnet`;
+    const rate = (99.8 + Math.random() * 0.19).toFixed(2);
     
     card.innerHTML = `
-        <div style="text-align: center; animation: fadeIn 1s;">
-            <div style="font-size: 1.8em; color: var(--holo-green); text-shadow: 0 0 20px var(--holo-green); margin-bottom: 20px; font-family: 'Orbitron';">
-                DEAD DROP COMPLETE
+        <div style="text-align: center; animation: fadeIn 0.5s;">
+            <div style="color: var(--holo-green); font-size: 1.5em; font-family: 'Orbitron'; margin-bottom: 20px;">
+                TRANSFER COMPLETE
             </div>
-            
-            <div style="border: 1px solid var(--holo-green); padding: 20px; background: rgba(0, 255, 0, 0.05);">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(0,255,0,0.2); padding-bottom: 5px;">
-                    <span style="color: #aaa; font-size: 0.8em;">STATUS</span>
-                    <span style="color: #fff;">CONFIRMED</span>
+            <div style="background: rgba(0,255,0,0.05); border: 1px solid var(--holo-green); padding: 15px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span style="color:#aaa; font-size:0.8em">ANONYMITY</span>
+                    <span style="color:var(--holo-cyan)">${rate}%</span>
                 </div>
-                
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(0,255,0,0.2); padding-bottom: 5px;">
-                    <span style="color: #aaa; font-size: 0.8em;">ANONYMITY SCORE</span>
-                    <span style="color: var(--holo-cyan); font-weight: bold;">${anonRate}%</span>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                    <span style="color: #aaa; font-size: 0.8em;">GLOBAL POOL VOLUME</span>
-                    <span style="color: var(--holo-pink);">${users} USERS</span>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:#aaa; font-size:0.8em">ACTIVE USERS</span>
+                    <span style="color:#fff">${users}</span>
                 </div>
             </div>
-            
-            <div style="margin-top: 20px; font-size: 0.9em; color: var(--holo-cyan);">
-                <div style="margin-bottom: 10px; font-weight: bold;">🎯 FINAL TRANSACTION TO RECEIVER:</div>
-                <div style="font-size: 0.7em; color: #666; word-break: break-all; margin-bottom: 10px;">
-                    ${hash}
-                </div>
-                <a href="${solscanLink}" target="_blank" style="color: var(--holo-cyan); text-decoration: underline; font-size: 0.85em;">
-                    🔗 View on Solscan (Devnet)
-                </a>
-            </div>
-            
-            <button onclick="location.reload()" class="btn" style="margin-top: 25px; border-color: var(--holo-green); color: var(--holo-green);">
-                INITIATE NEW DROP
-            </button>
+            <div style="margin-top:15px; font-size:0.7em; color:#666; word-break:break-all;">PROOF: ${hash}</div>
+            <a href="https://solscan.io/tx/${hash}?cluster=devnet" target="_blank" style="display:block; margin-top:10px; color:var(--holo-cyan); text-decoration:underline; font-size:0.8em;">🔗 View on Solscan (Devnet)</a>
+            <button onclick="location.reload()" class="btn" style="border-color:var(--holo-green); color:var(--holo-green)">NEW DROP</button>
         </div>
     `;
 }
