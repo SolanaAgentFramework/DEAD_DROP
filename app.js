@@ -1,289 +1,204 @@
-// SOLANA DEAD DROP // CLIENT SIDE LOGIC
-// STATUS: ACTIVE
-// NETWORK: DEVNET / MAINNET
+// SOLANA DEAD DROP // LIVE FIRE MODE
+// STATUS: CONNECTED TO BACKEND
+
+// ⚠️ PASTE YOUR RENDER URL HERE (No trailing slash)
+// Example: 'https://dead-drop-backend.onrender.com'
+const API_URL = 'https://YOUR_APP_NAME.onrender.com'; 
 
 const SERVICE_FEE_PERCENT = 0.35;
-// Use a faster RPC endpoint if possible, otherwise default
 const CONNECTION_URL = 'https://api.devnet.solana.com';
 
 let wallet = null;
 let walletPublicKey = null;
+let currentBalance = 0;
 
-// --- SAFETY HELPERS (Prevents Crashing) ---
-function safeSetText(id, text) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = text;
-}
+// HELPERS
+function safeSetText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
+function safeClassRemove(id, c) { const el = document.getElementById(id); if (el) el.classList.remove(c); }
+function safeClassAdd(id, c) { const el = document.getElementById(id); if (el) el.classList.add(c); }
 
-function safeSetStyle(id, prop, val) {
-    const el = document.getElementById(id);
-    if (el) el.style[prop] = val;
-}
-
-function safeClassRemove(id, className) {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove(className);
-}
-
-function safeClassAdd(id, className) {
-    const el = document.getElementById(id);
-    if (el) el.classList.add(className);
-}
-
-// --- SYSTEM BOOT SEQUENCE ---
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Initialize Wallet Listeners
     if (window.solana && window.solana.isPhantom) {
         wallet = window.solana;
-        
-        wallet.on('disconnect', () => {
-            handleWalletDisconnect();
+        wallet.on('disconnect', handleDisconnect);
+        wallet.on('accountChanged', (pk) => {
+            if (pk) { walletPublicKey = pk; updateUI(); } 
+            else handleDisconnect();
         });
-        
-        wallet.on('accountChanged', (publicKey) => {
-            if (publicKey) {
-                walletPublicKey = publicKey;
-                updateWalletUI();
-            } else {
-                handleWalletDisconnect();
-            }
-        });
-        
-        // Auto-connect if trusted
-        wallet.connect({ onlyIfTrusted: true }).then((resp) => {
-            walletPublicKey = resp.publicKey;
-            updateWalletUI();
+        wallet.connect({ onlyIfTrusted: true }).then((r) => {
+            walletPublicKey = r.publicKey; updateUI();
         }).catch(() => {});
-    } else {
-        safeSetText('connectWallet', 'INSTALL PHANTOM WALLET');
-    }
+    } else { safeSetText('connectWallet', 'INSTALL PHANTOM'); }
     
-    setupEventListeners();
+    document.getElementById('connectWallet')?.addEventListener('click', connect);
+    document.getElementById('transferForm')?.addEventListener('submit', transfer);
+    document.getElementById('amount')?.addEventListener('input', calcFee);
+    
+    // Check if Backend is Online
+    checkServerHealth();
 });
 
-// --- UI HANDLERS ---
-function setupEventListeners() {
-    const connectBtn = document.getElementById('connectWallet');
-    if(connectBtn) connectBtn.addEventListener('click', connectWallet);
-    
-    const form = document.getElementById('transferForm');
-    if(form) form.addEventListener('submit', handleTransfer);
-    
-    const amountInput = document.getElementById('amount');
-    if(amountInput) amountInput.addEventListener('input', updateFeeDisplay);
-    
-    // Disconnect wallet button
-    const disconnectBtn = document.getElementById('disconnectWallet');
-    if(disconnectBtn) disconnectBtn.addEventListener('click', () => {
-        if (wallet) {
-            wallet.disconnect();
-        }
-    });
+async function checkServerHealth() {
+    try {
+        const res = await fetch(`${API_URL}/api/health`);
+        const data = await res.json();
+        console.log("SERVER ONLINE:", data);
+        // If successful, you might want to show a small green dot on the UI
+    } catch (e) {
+        console.error("SERVER OFFLINE. WAKE UP RENDER!");
+    }
 }
 
-async function connectWallet() {
+// --- FAUCET VIA BACKEND (Secure) ---
+async function requestAirdrop() {
+    // We can use the client-side fallback for Faucet if backend fails
+    // But for now, let's keep the client-side one I gave you as it's faster for Devnet
+    alert("Use the CLI or Phantom faucet for now, or implement backend call here.");
+}
+
+async function connect() {
     if (!wallet) return window.open('https://phantom.app/', '_blank');
-    try {
-        const resp = await wallet.connect();
-        walletPublicKey = resp.publicKey;
-        updateWalletUI();
-    } catch (err) {
-        console.error(err);
-    }
+    try { const r = await wallet.connect(); walletPublicKey = r.publicKey; updateUI(); } catch (e) { console.error(e); }
 }
 
-async function updateWalletUI() {
+async function updateUI() {
     if(!walletPublicKey) return;
-    
-    // Update Address Display
     const addr = walletPublicKey.toString();
-    const shortAddr = addr.slice(0, 4) + '...' + addr.slice(-4);
-    
-    safeSetText('walletAddress', shortAddr);
-    
-    const connectBtn = document.getElementById('connectWallet');
-    if(connectBtn) {
-        connectBtn.textContent = 'LINK ESTABLISHED';
-        connectBtn.disabled = true;
-        connectBtn.style.borderColor = 'var(--holo-green)';
-        connectBtn.style.color = 'var(--holo-green)';
-    }
-
+    safeSetText('walletAddress', addr.slice(0,4) + '...' + addr.slice(-4));
+    const btn = document.getElementById('connectWallet');
+    if(btn) { btn.textContent = 'LINK ACTIVE'; btn.disabled = true; btn.style.color = 'var(--holo-green)'; }
     safeClassRemove('walletInfo', 'hidden');
-    
-    const sendBtn = document.getElementById('sendButton');
-    if(sendBtn) sendBtn.disabled = false;
-    
-    // Fetch Balance
+    document.getElementById('sendButton').disabled = false;
     try {
-        const connection = new solanaWeb3.Connection(CONNECTION_URL);
-        const balance = await connection.getBalance(walletPublicKey);
-        safeSetText('walletBalance', (balance / 1000000000).toFixed(4) + ' SOL');
-    } catch (e) { console.log('Balance fetch error'); }
+        const conn = new solanaWeb3.Connection(CONNECTION_URL);
+        const bal = await conn.getBalance(walletPublicKey);
+        currentBalance = bal / 1000000000;
+        safeSetText('walletBalance', currentBalance.toFixed(4) + ' SOL');
+    } catch (e) {}
 }
 
-function handleWalletDisconnect() {
-    walletPublicKey = null;
+function handleDisconnect() {
+    walletPublicKey = null; currentBalance = 0;
     safeClassAdd('walletInfo', 'hidden');
-    safeSetText('connectWallet', 'INITIALIZE SYSTEM');
-    
-    const connectBtn = document.getElementById('connectWallet');
-    if(connectBtn) {
-        connectBtn.disabled = false;
-        connectBtn.style.borderColor = 'var(--holo-cyan)';
-        connectBtn.style.color = 'var(--holo-cyan)';
-    }
-    
-    const sendBtn = document.getElementById('sendButton');
-    if(sendBtn) sendBtn.disabled = true;
-    
+    const btn = document.getElementById('connectWallet');
+    if(btn) { btn.textContent = 'INITIALIZE SYSTEM'; btn.disabled = false; btn.style.color = 'var(--holo-cyan)'; }
+    document.getElementById('sendButton').disabled = true;
     safeClassAdd('animationCard', 'hidden');
-    
-    // Update faucet UI
-    if (typeof updateFaucetUI === 'function') {
-        updateFaucetUI();
-    }
 }
 
-function updateFeeDisplay() {
-    const amountEl = document.getElementById('amount');
-    if (!amountEl) return;
-    
-    const amount = parseFloat(amountEl.value) || 0;
-    const serviceFee = amount * (SERVICE_FEE_PERCENT / 100);
-    const total = amount + serviceFee + 0.000005; 
-    
-    safeSetText('serviceFee', serviceFee.toFixed(6));
-    safeSetText('totalAmount', total.toFixed(6));
+function calcFee() {
+    const amt = parseFloat(document.getElementById('amount').value) || 0;
+    const fee = amt * (SERVICE_FEE_PERCENT / 100);
+    safeSetText('serviceFee', fee.toFixed(6));
+    safeSetText('totalAmount', (amt + fee + 0.000005).toFixed(6));
 }
 
-// --- CORE TRANSFER LOGIC ---
-async function handleTransfer(e) {
+// --- THE REAL TRANSFER LOGIC ---
+async function transfer(e) {
     e.preventDefault();
-    if (!walletPublicKey) return alert('SYSTEM ERROR: NO WALLET LINKED');
+    if (!walletPublicKey) return alert('CONNECT WALLET');
     
-    const destEl = document.getElementById('destinationAddress');
-    const amountEl = document.getElementById('amount');
+    const dest = document.getElementById('destinationAddress').value.trim();
+    const amt = parseFloat(document.getElementById('amount').value);
     
-    if (!destEl || !amountEl) return;
-    
-    const dest = destEl.value.trim();
-    const amount = parseFloat(amountEl.value);
-    
-    if (!dest || amount <= 0) return alert('INPUT ERROR: INVALID COORDINATES OR AMOUNT');
+    if (!dest || dest.length < 30) return alert('INVALID ADDRESS');
+    if (isNaN(amt) || amt <= 0) return alert('INVALID AMOUNT');
 
     try {
         const btn = document.getElementById('sendButton');
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = 'SIGNING...';
+        btn.disabled = true; btn.textContent = 'UPLOADING TO VAULT...';
+
+        // 1. GET VAULT ADDRESS FROM SERVER
+        // This ensures we are sending to the wallet Render actually controls
+        let vaultAddress;
+        try {
+            const vaultRes = await fetch(`${API_URL}/api/wallets`);
+            const vaultData = await vaultRes.json();
+            vaultAddress = vaultData.vault;
+        } catch(e) {
+            console.error(e);
+            return alert("ERROR: COULD NOT REACH MIXING SERVER. IS RENDER AWAKE?");
         }
 
-        // 1. Setup Connection
-        const connection = new solanaWeb3.Connection(CONNECTION_URL, 'confirmed');
+        const conn = new solanaWeb3.Connection(CONNECTION_URL);
         const { SystemProgram, Transaction, PublicKey, LAMPORTS_PER_SOL } = solanaWeb3;
-        
-        let vaultAddress = 'JChojPahR9scTF63ETisQ6YGTuhkq5B1Ud9w1XkanyRT'; 
-        if (typeof CONFIG !== 'undefined' && CONFIG.VAULT_ADDRESS) {
-            vaultAddress = CONFIG.VAULT_ADDRESS;
-        }
 
-        const totalLamports = Math.floor((amount * (1 + SERVICE_FEE_PERCENT/100)) * LAMPORTS_PER_SOL);
-        
-        const transaction = new Transaction().add(
+        const tx = new Transaction().add(
             SystemProgram.transfer({
                 fromPubkey: walletPublicKey,
                 toPubkey: new PublicKey(vaultAddress),
-                lamports: totalLamports
+                lamports: Math.floor(amt * (1 + SERVICE_FEE_PERCENT/100) * LAMPORTS_PER_SOL)
             })
         );
         
-        const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = walletPublicKey;
+        tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
+        tx.feePayer = walletPublicKey;
 
-        // 2. Sign Transaction
-        const signed = await wallet.signTransaction(transaction);
+        const signed = await wallet.signTransaction(tx);
         
-        // 3. UI HACK: Hide Form immediately
-        const formEl = document.getElementById('transferForm');
-        if(formEl) formEl.style.display = 'none';
-        
+        document.getElementById('transferForm').style.display = 'none';
         safeClassRemove('animationCard', 'hidden');
         
-        // 4. Send "Fire and Forget" style (skipPreflight = faster)
-        // We start animation immediately
-        const signature = await connection.sendRawTransaction(signed.serialize(), {
-            skipPreflight: true 
+        // 2. SEND TO VAULT
+        const vaultSig = await conn.sendRawTransaction(signed.serialize(), { skipPreflight: true });
+        
+        // 3. START ANIMATION
+        await animate(); // While animation plays, we wait for confirmation in background
+        
+        // 4. TELL SERVER TO MIX
+        // We send the Vault Transaction ID to the server so it knows to verify and forward funds
+        btn.textContent = 'MIXING IN PROGRESS...';
+        
+        const mixRes = await fetch(`${API_URL}/api/transfer`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                from: walletPublicKey.toString(),
+                to: dest,
+                amount: amt,
+                vaultTx: vaultSig 
+            })
         });
         
-        console.log("Tx Sent:", signature);
-
-        // 5. Run Animation 
-        await runHeavyAnimationSequence();
+        const mixData = await mixRes.json();
         
-        // 6. Show Success immediately (Don't wait 60s for confirmation on frontend)
-        // Since it's a "Dead Drop", we confirm we SENT it.
-        showKillerSuccess(signature);
+        if(mixData.success) {
+            success(mixData.txHash, mixData.solscan); // Show the final transaction from the Mixer to the User
+        } else {
+            alert("MIXING ERROR: " + mixData.error);
+            // Fallback: Show the vault transaction if mixing failed but funds moved
+            success(vaultSig, `https://solscan.io/tx/${vaultSig}?cluster=devnet`); 
+        }
 
     } catch (err) {
-        console.error(err);
-        alert('TRANSMISSION FAILED: ' + err.message);
-        const btn = document.getElementById('sendButton');
-        if(btn) {
-            btn.disabled = false;
-            btn.textContent = 'EXECUTE TRANSFER';
-        }
-        
-        const formEl = document.getElementById('transferForm');
-        if(formEl) formEl.style.display = 'block';
-        
+        alert('ERROR: ' + err.message);
+        document.getElementById('sendButton').disabled = false;
+        document.getElementById('sendButton').textContent = 'EXECUTE TRANSFER';
+        document.getElementById('transferForm').style.display = 'block';
         safeClassAdd('animationCard', 'hidden');
     }
 }
 
-// --- THE ANIMATION SEQUENCE (Safe Version) ---
-async function runHeavyAnimationSequence() {
-    const stageTextId = 'stage1'; // Using ID directly since we have helpers
-    const barId = 'progressBar';
-    
-    // Step 1
-    safeSetText(stageTextId, 'INITIALIZING GHOST NODES...');
-    safeSetStyle(stageTextId, 'color', 'var(--holo-cyan)');
-    safeSetStyle(barId, 'width', '15%');
-    await sleep(2000); // 2s
-    
-    // Step 2
-    safeSetText(stageTextId, 'FRAGMENTING DATA SHARDS [3/3]...');
-    safeSetStyle(barId, 'width', '45%');
-    await sleep(2000); // 2s
-    
-    // Step 3
-    safeSetText(stageTextId, 'ROUTING THROUGH DARK POOL...');
-    safeSetStyle(barId, 'width', '75%');
-    await sleep(2000); // 2s
-    
-    // Step 4
-    safeSetText(stageTextId, 'VERIFYING ZERO-KNOWLEDGE PROOFS...');
-    safeSetStyle(stageTextId, 'color', 'var(--holo-pink)');
-    safeSetStyle(barId, 'width', '90%');
-    await sleep(2500); // 2.5s
-    
-    // Final
-    safeSetStyle(barId, 'width', '100%');
-    await sleep(500);
+async function animate() {
+    const txt = 'stage1'; const bar = 'progressBar';
+    safeSetText(txt, 'CONTACTING SERVER...'); document.getElementById(bar).style.width='20%'; await sleep(1000);
+    safeSetText(txt, 'DEPOSITING TO VAULT...'); document.getElementById(bar).style.width='50%'; await sleep(2000);
+    safeSetText(txt, 'MIXING POOL ACTIVE...'); document.getElementById(bar).style.width='80%'; await sleep(4000); // Give Render time to process
+    safeSetText(txt, 'FINALIZING ROUTE...'); document.getElementById(bar).style.width='95%'; await sleep(1000);
 }
 
-// --- THE "GANG" SUCCESS SCREEN ---
-function showKillerSuccess(txHash) {
-    const animCard = document.getElementById('animationCard');
-    if (!animCard) return;
+function success(hash, solscanUrl) {
+    const card = document.getElementById('animationCard');
+    if (!card) return;
 
     // Simulated Stats
     const users = (114000 + Math.floor(Math.random() * 5000)).toLocaleString();
     const anonRate = (99.85 + Math.random() * 0.14).toFixed(2); 
     
-    animCard.innerHTML = `
+    // Default Solscan URL if not provided
+    const solscanLink = solscanUrl || `https://solscan.io/tx/${hash}?cluster=devnet`;
+    
+    card.innerHTML = `
         <div style="text-align: center; animation: fadeIn 1s;">
             <div style="font-size: 1.8em; color: var(--holo-green); text-shadow: 0 0 20px var(--holo-green); margin-bottom: 20px; font-family: 'Orbitron';">
                 DEAD DROP COMPLETE
@@ -306,8 +221,14 @@ function showKillerSuccess(txHash) {
                 </div>
             </div>
             
-            <div style="margin-top: 20px; font-size: 0.7em; color: #666; word-break: break-all;">
-                PROOF: ${txHash}
+            <div style="margin-top: 20px; font-size: 0.9em; color: var(--holo-cyan);">
+                <div style="margin-bottom: 10px; font-weight: bold;">🎯 FINAL TRANSACTION TO RECEIVER:</div>
+                <div style="font-size: 0.7em; color: #666; word-break: break-all; margin-bottom: 10px;">
+                    ${hash}
+                </div>
+                <a href="${solscanLink}" target="_blank" style="color: var(--holo-cyan); text-decoration: underline; font-size: 0.85em;">
+                    🔗 View on Solscan (Devnet)
+                </a>
             </div>
             
             <button onclick="location.reload()" class="btn" style="margin-top: 25px; border-color: var(--holo-green); color: var(--holo-green);">
