@@ -2,137 +2,138 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PROTOCOL: DEAD_DROP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEAD_DROP // PROTOCOL</title>
     
+    <!-- Ghost Lock Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2300f3ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E">
+    
+    <!-- Signal Jammer Meta Data Pack - Social Camouflage -->
+    <meta name="description" content="PROTOCOL: ENCRYPTED // STATUS: ACTIVE. Zero-trace Solana routing architecture.">
     <meta name="theme-color" content="#00f3ff">
+    
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="description" content="Encrypted Solana Routing Protocol.">
-
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👻</text></svg>">
-
+    <meta name="twitter:title" content="DEAD_DROP // HUD">
+    <meta name="twitter:description" content="> ESTABLISHING SECURE CONNECTION... > GHOST SHARDS: ACTIVE">
+    
+    <!-- Open Graph (Facebook, Discord, Telegram, etc.) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="SOLANA PRIVACY [CLASSIFIED]">
+    <meta property="og:description" content="Next-generation anonymity protocol. Mixing pools and ghost routing active.">
+    
     <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
 </head>
 <body>
 
     <div class="scanlines"></div>
-    <div class="vignette"></div>
 
-    <div class="layout-grid">
+    <div class="hud-container">
+        
+        <header>
+            <h1>SOLANA<br>PRIVACY</h1>
+            <div class="subtitle">PROTOCOL: DEAD_DROP</div>
+        </header>
 
-        <div class="neon-column left-col">
-            <div class="vertical-sign sign-red">
-                <span>NO</span><br><span>LOGS</span>
-            </div>
-            <div class="vertical-sign sign-blue">
-                <span>GHOST</span><br><span>NET</span>
-            </div>
-            <div class="tech-panel">
-                <div class="panel-header">SYS_DIAG</div>
-                <div class="panel-row"><span>NODES:</span> <span style="color:var(--holo-green)">ONLINE</span></div>
-                <div class="panel-row"><span>PING:</span> <span class="flicker">14ms</span></div>
-            </div>
+        <!-- Devnet Warning -->
+        <div class="warning-banner" style="margin-bottom: 30px;">
+            <h2>⚠️ DEVNET TEST PAGE ⚠️</h2>
+            <p style="color: #ffaa00; font-size: 0.9em; margin: 5px 0;">
+                🚰 FAUCET GIVES <strong>DEVNET SOL ONLY</strong> 🚰
+            </p>
+            <p style="color: rgba(255,255,255,0.5); font-size: 0.8em; margin-top: 10px;">
+                This is a testing environment. All transactions are on Solana Devnet.
+            </p>
         </div>
 
-        <div class="hud-center">
+        <div id="walletSection">
+            <button id="connectWallet" class="btn">INITIALIZE SYSTEM</button>
             
-            <header>
-                <h1>SOLANA<br>PRIVACY</h1>
-                <div class="subtitle">PROTOCOL: DEAD_DROP // ENCRYPTED</div>
-            </header>
-
-            <div class="faucet-panel">
-                <div class="faucet-header">⚡ DEVNET FUEL INJECTOR ⚡</div>
-                <div class="faucet-status">
-                    <span>SOURCE:</span> <span style="color: var(--holo-green);">SOLANA CLUSTER</span>
-                </div>
-                <button id="faucetBtn" class="btn btn-warning">GIMME 0.02 SOL (DEVNET)</button>
-                <div id="faucetMsg" class="hidden" style="margin-top: 5px; font-size: 0.8em; color: var(--holo-green);">INJECTION SUCCESSFUL</div>
+            <div id="walletInfo" class="hidden">
+                <span style="color: var(--holo-green);">● SYSTEM ONLINE</span><br>
+                <span style="opacity: 0.7;">ID:</span> <span id="walletAddress" style="font-family: monospace;">...</span><br>
+                <span style="opacity: 0.7;">FUEL:</span> <span id="walletBalance">...</span>
             </div>
-
-            <div id="walletSection" style="margin-top: 20px;">
-                <button id="connectWallet" class="btn">INITIALIZE SYSTEM</button>
-                
-                <div id="walletInfo" class="hidden">
-                    <div class="status-row">
-                        <span style="color: var(--holo-green);">● LINK ACTIVE</span>
-                        <span id="walletAddress" style="font-family: monospace; color: #fff;">...</span>
-                    </div>
-                    <div class="status-row" style="margin-top: 5px;">
-                        <span style="opacity: 0.7;">FUEL:</span> 
-                        <span id="walletBalance" style="color: var(--holo-cyan);">...</span>
-                    </div>
-                </div>
-            </div>
-
-            <form id="transferForm" style="margin-top: 30px;">
-                <div class="form-group">
-                    <label>TARGET COORDINATES</label>
-                    <input type="text" id="destinationAddress" placeholder="ENCRYPTED_ADDRESS" autocomplete="off">
-                </div>
-
-                <div class="form-group">
-                    <label>QUANTITY (SOL)</label>
-                    <input type="number" id="amount" step="0.000000001" min="0.003" max="0.1" placeholder="0.00">
-                    <small>Min: 0.003 SOL | Max: 0.1 SOL (Testing limit)</small>
-                </div>
-
-                <div class="fee-info">
-                    FEE: <span id="serviceFee">0.00</span> | TOTAL: <span id="totalAmount">0.00</span>
-                </div>
-
-                <button type="submit" id="sendButton" class="btn" disabled>EXECUTE TRANSFER</button>
-            </form>
-
-            <div id="animationCard" class="hidden" style="margin-top: 20px; text-align: left;">
-                <div style="font-family: 'Orbitron'; color: var(--holo-cyan); margin-bottom: 10px; font-size: 0.9em;">
-                    STATUS: <span id="stage1">PROCESSING...</span>
-                </div>
-                
-                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 4px;">
-                    <div id="progressBar"></div>
-                </div>
-
-                <div id="txHash" style="margin-top: 15px; font-size: 0.7em; opacity: 0.7; word-break: break-all;"></div>
-            </div>
-
-            <div class="timeline-box">
-                <div class="timeline-header">PROTOCOL_TIMELINE</div>
-                <div class="timeline-item active">
-                    <div class="dot"></div>
-                    <div class="content">
-                        <div class="title">PHASE I: GENESIS [ACTIVE]</div>
-                        <div class="desc">Ghost Sharding • Black Mirror Wallets • Merkle Proofs</div>
-                    </div>
-                </div>
-                <div class="timeline-item locked">
-                    <div class="dot red"></div>
-                    <div class="content">
-                        <div class="title">PHASE II: [ENCRYPTED]</div>
-                        <div class="desc">Status: Classified • Pending Decryption</div>
-                    </div>
-                </div>
-            </div>
-
         </div>
 
-        <div class="neon-column right-col">
-            <div class="vertical-sign sign-blue">
-                <span>MIXER</span><br><span>ACTIVE</span>
+        <form id="transferForm" style="margin-top: 50px;">
+            
+            <div class="form-group">
+                <label>TARGET COORDINATES</label>
+                <input type="text" id="destinationAddress" placeholder="ENCRYPTED_ADDRESS" autocomplete="off" required>
             </div>
-            <div class="vertical-sign sign-pink">
-                <span>DATA</span><br><span>PURGE</span>
+
+            <div class="form-group">
+                <label>QUANTITY (SOL)</label>
+                <input type="number" id="amount" step="0.000000001" min="0.003" max="0.1" placeholder="0.00" required>
+                <small>Minimum: 0.003 SOL | Maximum: 0.1 SOL (Testing limit)</small>
             </div>
-            <div class="tech-panel" style="margin-top: 50px;">
-                <div class="panel-row"><span>ANON SET:</span> <span style="color:var(--holo-cyan)">114,204</span></div>
-                <div class="panel-row"><span>VOLUME:</span> <span>500k+</span></div>
+
+            <div class="fee-info">
+                FEE: <span id="serviceFee">0.00</span> | TOTAL: <span id="totalAmount">0.00</span>
             </div>
+
+            <button type="submit" id="sendButton" class="btn btn-success" disabled>EXECUTE TRANSFER</button>
+        </form>
+
+        <!-- Devnet Faucet Section -->
+        <div class="faucet-panel" style="margin-top: 40px;">
+            <div class="faucet-header">🚰 DEVNET FAUCET</div>
+            <p style="color: rgba(255,255,255,0.6); margin-bottom: 15px; font-size: 0.85em;">
+                Get 0.02 DEVNET SOL for testing (Rate limit: 1 hour per wallet)
+            </p>
+            
+            <button id="faucetBtn" class="btn btn-warning" style="font-size: 1.1em; font-weight: bold;">
+                🎁 GIMME 0.02 DEVNET SOL 🎁
+            </button>
+            <div id="faucetMsg" class="hidden" style="margin-top: 10px; font-size: 0.85em; color: var(--holo-green);">INJECTION SUCCESSFUL</div>
+        </div>
+
+        <div id="animationCard" class="hidden" style="margin-top: 30px; text-align: left;">
+            <div style="font-family: 'Orbitron'; color: var(--holo-cyan); margin-bottom: 10px;">
+                STATUS: <span id="stage1" class="stage-text">PROCESSING...</span>
+            </div>
+            
+            <div style="width: 100%; background: rgba(255,255,255,0.1); height: 3px; margin-top: 15px;">
+                <div id="progressBar"></div>
+            </div>
+
+            <div id="txHash" style="margin-top: 15px; font-size: 0.7em; opacity: 0.7; word-break: break-all;"></div>
+        </div>
+
+        <!-- Protocol Timeline -->
+        <div style="margin-top: 50px; width: 100%; text-align: left;">
+            <h2 style="font-size: 1em; margin-bottom: 15px; text-align: center; font-family: 'Orbitron'; color: var(--holo-cyan);">PROTOCOL_TIMELINE</h2>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--holo-cyan); padding: 15px; margin-bottom: 15px;">
+                <h3 style="color: var(--holo-cyan); margin-bottom: 10px; font-size: 0.9em; font-family: 'Orbitron';">PHASE I: GENESIS</h3>
+                <p style="font-size: 0.8em; margin: 3px 0;">• Ghost Shard Routing [ACTIVE]</p>
+                <p style="font-size: 0.8em; margin: 3px 0;">• Black Mirror Wallet Integration</p>
+                <p style="font-size: 0.8em; margin: 3px 0;">• Merkle Verification Layer</p>
+                <div style="margin-top:10px; color: var(--holo-green); font-size: 0.75em;">STATUS: DEPLOYED</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid #555; padding: 15px; margin-bottom: 15px; opacity: 0.7;">
+                <h3 style="color: #555; margin-bottom: 10px; font-size: 0.9em; font-family: 'Orbitron';">PHASE II: [ENCRYPTED]</h3>
+                <div style="background: #222; height: 0.8em; width: 80%; margin-bottom: 5px;"></div>
+                <div style="background: #222; height: 0.8em; width: 60%; margin-bottom: 5px;"></div>
+                <div style="background: #222; height: 0.8em; width: 90%; margin-bottom: 5px;"></div>
+                <div style="margin-top:10px; color: #555; font-size: 0.75em;">STATUS: PENDING DECRYPTION</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid #555; padding: 15px; opacity: 0.7;">
+                <h3 style="color: #555; margin-bottom: 10px; font-size: 0.9em; font-family: 'Orbitron';">PHASE III: [NO SIGNAL]</h3>
+                <div style="background: #222; height: 0.8em; width: 50%; margin-bottom: 5px;"></div>
+                <div style="background: #222; height: 0.8em; width: 100%; margin-bottom: 5px;"></div>
+                <div style="background: #222; height: 0.8em; width: 70%; margin-bottom: 5px;"></div>
+                <div style="margin-top:10px; color: #555; font-size: 0.75em;">STATUS: CLASSIFIED</div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 40px; text-align: center; opacity: 0.5; font-size: 0.7em;">
+            GITHUB PAGES DEPLOYMENT // DEVNET ONLY
         </div>
 
     </div>
 
-    <script src="config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
