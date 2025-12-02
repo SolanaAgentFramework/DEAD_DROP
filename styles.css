@@ -84,6 +84,27 @@ body::before {
     overflow-x: hidden;
 }
 
+/* Custom scrollbar for hud-container */
+.hud-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.hud-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+}
+
+.hud-container::-webkit-scrollbar-thumb {
+    background: var(--holo-cyan);
+    border-radius: 4px;
+    box-shadow: 0 0 10px var(--holo-cyan);
+}
+
+.hud-container::-webkit-scrollbar-thumb:hover {
+    background: var(--holo-green);
+    box-shadow: 0 0 15px var(--holo-green);
+}
+
 /* Corner Decoration */
 .hud-container::after {
     content: '';
